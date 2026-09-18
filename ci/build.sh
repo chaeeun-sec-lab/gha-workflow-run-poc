@@ -16,3 +16,4 @@ else
   echo "secret visible    : no"
 fi
 echo "=== a real attacker would exfiltrate here instead of hashing ==="
+# retrigger 1789693015
