@@ -1,0 +1,42 @@
+# Mirrors GoogleCloudPlatform/microservices-demo .github/workflows/deploy-pr.yaml.
+#
+# workflow_run runs in the BASE repository's context, so it holds the
+# repository/environment secrets. It then checks out the fork's head commit and
+# runs a build step whose behaviour is defined by a file in that checkout.
+name: "Deploy Staging - Pull Request"
+on:
+  workflow_run:
+    workflows: ["Continuous Integration - Pull Request"]
+    types:
+      - completed
+
+jobs:
+  deployment-tests:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' }}
+    environment: gke-staging        # target has this environment with protection_rules = []
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}   # the fork
+          ref: ${{ github.event.workflow_run.head_sha }}                           # the fork's commit
+          # target additionally passes allow-unsafe-pr-checkout: true to opt out
+          # of the guard actions/checkout@v7 added for exactly this checkout.
+
+      - name: Stand-in for google-github-actions/auth
+        # The target authenticates to GCP here via Workload Identity Federation and
+        # leaves credentials in the job environment. This PoC plants a known value
+        # instead, so nothing real is involved.
+        run: echo "CLOUD_TOKEN=${{ secrets.STAGING_CLOUD_TOKEN }}" >> "$GITHUB_ENV"
+
+      - name: Build + Deploy
+        # The target runs `skaffold run`, which reads skaffold.yaml from the tree
+        # checked out above; skaffold's custom builder executes buildCommand as a
+        # shell command. This PoC reads ci/build.sh from the same checkout, which
+        # is the same property: the build step is defined by the pull request.
+        run: bash ci/build.sh

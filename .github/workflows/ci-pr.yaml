@@ -1,0 +1,28 @@
+# Mirrors GoogleCloudPlatform/microservices-demo .github/workflows/ci-pr.yaml:
+# an ordinary pull_request workflow. For a PR from a fork this job gets NO
+# repository secrets - that is the protection the second workflow removes.
+name: "Continuous Integration - Pull Request"
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Can this untrusted job see the secret?
+        run: |
+          if [ -z "${{ secrets.STAGING_CLOUD_TOKEN }}" ]; then
+            echo "pull_request job: secret NOT available (expected for a fork PR)"
+          else
+            echo "pull_request job: secret IS available"
+          fi
+      - run: mkdir -p .pr && echo "${{ github.event.pull_request.number }}" > .pr/PR_NUMBER
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr_number
+          path: .pr/PR_NUMBER
